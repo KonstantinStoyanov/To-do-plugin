@@ -12,6 +12,23 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+function task_manager_scripts()
+{
+    // Enqueue the styles and scripts for the front end
+    wp_enqueue_style('task-manager', plugins_url('/assets/css/todo-plugin.css', __FILE__));
+    wp_enqueue_script('task-manager', plugins_url('/assets/js/todo-plugin.js', __FILE__), array('jquery'), null, true);
+}
+add_action('wp_enqueue_scripts', 'task_manager_scripts');
+
+function task_manager_admin_scripts()
+{
+    // Enqueue the styles and scripts for the admin area
+    wp_enqueue_style('task-manager-admin', plugins_url('/assets/css/todo-plugin.css', __FILE__));
+    wp_enqueue_script('task-manager-admin', plugins_url('/assets/js/todo-plugin.js', __FILE__), array('jquery'), null, true);
+}
+add_action('admin_enqueue_scripts', 'task_manager_admin_scripts');
+
+
 global $task_manager_db_version;
 $task_manager_db_version = '1.0';
 
@@ -85,3 +102,26 @@ function task_manager_register_post_type()
     ]);
 }
 add_action('init', 'task_manager_register_post_type');
+
+function task_manager_menu()
+{
+    add_menu_page(
+        'Task Manager', // Page title
+        'Task Manager', // Menu title
+        'manage_options', // Capability
+        'task-manager', // Menu slug
+        'task_manager_page', // Function to display the page
+        'dashicons-list-view', // Icon URL
+        20 // Position
+    );
+}
+
+
+add_action('admin_menu', 'task_manager_menu');
+
+
+// Function to render the admin page for task management.
+function task_manager_page()
+{
+    echo "task_manager_page";
+}

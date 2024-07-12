@@ -1,0 +1,15 @@
+body {
+  background: red;
+}
+
+#editTaskModal {
+  background: #fff;
+  border: 1px solid #ccc;
+  padding: 15px;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  width: 500px;
+}
