@@ -28,6 +28,14 @@ function task_manager_admin_scripts()
 }
 add_action('admin_enqueue_scripts', 'task_manager_admin_scripts');
 
+function enqueue_datepicker()
+{
+    // Enqueue jQuery UI Datepicker
+    wp_enqueue_script('jquery-ui-datepicker');
+
+    // Enqueue jQuery UI theme
+    wp_enqueue_style('jquery-ui-theme', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
+}
 
 global $task_manager_db_version;
 $task_manager_db_version = '1.0';
@@ -123,5 +131,256 @@ add_action('admin_menu', 'task_manager_menu');
 // Function to render the admin page for task management.
 function task_manager_page()
 {
-    echo "task_manager_page";
-}
+    global $wpdb;
+
+    $table_name = $wpdb->prefix . 'tasks';
+
+    // Handle form submissions for adding, editing, and deleting tasks.
+    if (isset($_POST['submit'])) {
+
+        // Add new task.
+        if (isset($_POST['new_task']) && $_POST['new_task'] == 1) {
+            $title = sanitize_text_field($_POST['title']);
+            $description = sanitize_textarea_field($_POST['description']);
+            $user_id = absint($_POST['user_id']);
+            $end_date = sanitize_text_field($_POST['end_date']);
+
+            // Validate and format end date as d m Y.
+            if (!empty($end_date)) {
+                $end_date = DateTime::createFromFormat('d m Y', $end_date);
+                if ($end_date) {
+                    $end_date = $end_date->format('Y-m-d');
+                } else {
+                    $end_date = null;
+                }
+            } else {
+                $end_date = null;
+            }
+
+            $wpdb->insert(
+                $table_name,
+                array(
+                    'user_id' => $user_id,
+                    'title' => $title,
+                    'description' => $description,
+                    'created_at' => current_time('mysql'),
+                    'updated_at' => current_time('mysql'),
+                    'state' => 0,
+                    'end_date' => $end_date,
+                ),
+                array(
+                    '%d',
+                    '%s',
+                    '%s',
+                    '%s',
+                    '%s',
+                    '%d',
+                    '%s'
+                )
+            );
+            echo '<div class="updated"><p>New task added successfully!</p></div>';
+        }
+        // Delete task.
+        if (isset($_POST['delete_task']) && $_POST['delete_task'] == '1') {
+            $id = absint($_POST['id']);
+
+            var_dump($_POST); // Debugging statement to check $_POST data
+            $result = $wpdb->delete(
+                $table_name,
+                array('id' => $id)
+            );
+
+            if ($result === false) {
+                echo '<div class="error"><p>Error deleting task: ' . $wpdb->last_error . '</p></div>';
+            } else {
+                echo '<div class="updated"><p>Task deleted successfully!</p></div>';
+            }
+            $wpdb->show_errors();
+            return $result;
+        }
+
+        // Edit task.
+        if (isset($_POST['edit_task']) && $_POST['edit_task'] == '1') {
+            $id = $_POST['id'];
+            $title = sanitize_text_field($_POST['title']);
+            $description = sanitize_textarea_field($_POST['description']);
+            $user_id = absint($_POST['user_id']);
+            $state = isset($_POST['state']) ? 1 : 0;
+            $end_date = sanitize_text_field($_POST['end_date']);
+
+            // Validate and format end date as d m Y.
+            if (!empty($end_date)) {
+                $end_date = DateTime::createFromFormat('d m Y', $end_date);
+                if ($end_date) {
+                    $end_date = $end_date->format('Y-m-d');
+                } else {
+                    $end_date = null;
+                }
+            } else {
+                $end_date = null;
+            }
+
+            $wpdb->update(
+                $table_name,
+                array(
+                    'user_id' => $user_id,
+                    'title' => $title,
+                    'description' => $description,
+                    'updated_at' => current_time('mysql'),
+                    'state' => $state,
+                    'end_date' => $end_date,
+                ),
+                array('id' => $id),
+                array(
+                    '%d',
+                    '%s',
+                    '%s',
+                    '%s',
+                    '%d',
+                    '%s'
+                ),
+                array('%d')
+            );
+            echo '<div class="updated"><p>Task updated successfully!</p></div>';
+        }
+    }
+
+    // Fetch tasks from the database.
+    $tasks = $wpdb->get_results("SELECT * FROM $table_name ORDER BY created_at DESC");
+?>
+    <div class="wrap">
+        <h1>Task Manager</h1>
+
+        <h2>Add New Task</h2>
+        <form method="POST">
+            <input type="hidden" name="new_task" value="1">
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><label for="title">Title</label></th>
+                    <td><input name="title" type="text" id="title" value="" class="regular-text" required></td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="description">Description</label></th>
+                    <td><textarea name="description" id="description" rows="5" class="large-text" required></textarea></td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="user_id">Assign To</label></th>
+                    <td>
+                        <select name="user_id" id="user_id" required>
+                            <?php
+                            $users = get_users();
+                            foreach ($users as $user) {
+                                echo '<option value="' . esc_attr($user->ID) . '">' . esc_html($user->display_name) . '</option>';
+                            }
+                            ?>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><label for="end_date">End Date (d m Y)</label></th>
+                    <td><input name="end_date" type="text" id="end_date" class="regular-text datepicker" placeholder="dd mm yyyy" required></td>
+                </tr>
+            </table>
+            <p class="submit"><input type="submit" name="submit" id="submit" class="button button-primary" value="Add Task"></p>
+        </form>
+
+        <h2>Existing Tasks</h2>
+        <table class="widefat fixed" cellspacing="0">
+            <thead>
+                <tr>
+                    <th id="columnname" class="manage-column column-columnname" scope="col">Title</th>
+                    <th id="columnname" class="manage-column column-columnname" scope="col">Description</th>
+                    <th id="columnname" class="manage-column column-columnname" scope="col">Assignee</th>
+                    <th id="columnname" class="manage-column column-columnname" scope="col">State</th>
+                    <th id="columnname" class="manage-column column-columnname" scope="col">End Date</th>
+                    <th id="columnname" class="manage-column column-columnname" scope="col">Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <?php foreach ($tasks as $task) { ?>
+                    <tr>
+                        <td class="column-columnname"><?php echo esc_html($task->title); ?></td>
+                        <td class="column-columnname"><?php echo esc_html($task->description); ?></td>
+                        <td class="column-columnname"><?php echo get_userdata($task->user_id)->display_name; ?></td>
+                        <td class="column-columnname"><?php echo $task->state ? 'Completed' : 'Pending'; ?></td>
+                        <td class="column-columnname"><?php echo $task->end_date ? date('d M Y', strtotime($task->end_date)) : ''; ?></td>
+                        <td class="column-columnname">
+                            <form method="POST" style="display:inline;">
+                                <input type="hidden" name="delete_task" value="1">
+                                <input type="hidden" name="id" value="<?php echo $task->id; ?>">
+                                <button type="submit" class="button button-link-delete">Delete</button>
+                            </form>
+                            <button class="button button-link-edit" onclick="openEditForm(<?php echo $task->id; ?>, '<?php echo esc_js($task->title); ?>', '<?php echo esc_js($task->description); ?>', '<?php echo esc_js($task->user_id); ?>', '<?php echo esc_js($task->state); ?>', '<?php echo esc_js($task->end_date); ?>')">Edit</button>
+                        </td>
+                    </tr>
+                <?php } ?>
+            </tbody>
+        </table>
+
+        <div id="editTaskModal" style="display:none;">
+            <h2>Edit Task</h2>
+            <form method="POST">
+                <input type="hidden" name="edit_task" value="1">
+                <input type="hidden" name="id" id="edit_task_id" value="">
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><label for="edit_title">Title</label></th>
+                        <td><input name="title" type="text" id="edit_title" value="" class="regular-text" required></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="edit_description">Description</label></th>
+                        <td><textarea name="description" id="edit_description" rows="5" class="large-text" required></textarea></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="edit_user_id">Assign To</label></th>
+                        <td>
+                            <select name="user_id" id="edit_user_id" required>
+                                <?php
+                                $users = get_users();
+                                foreach ($users as $user) {
+                                    echo '<option value="' . esc_attr($user->ID) . '">' . esc_html($user->display_name) . '</option>';
+                                }
+                                ?>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="edit_state">State</label></th>
+                        <td><input type="checkbox" name="state" id="edit_state" value="1"></td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="edit_end_date">End Date (d m Y)</label></th>
+                        <td><input name="end_date" type="text" id="edit_end_date" class="regular-text datepicker" placeholder="dd mm yyyy"></td>
+                    </tr>
+                </table>
+                <p class="submit"><input type="submit" name="submit" id="submit" class="button button-primary" value="Update Task"></p>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        jQuery(document).ready(function($) {
+            // Datepicker initialization
+            $('.datepicker').datepicker({
+                dateFormat: 'dd mm yy', // Set the date format to dd mm yyyy
+                changeMonth: true,
+                changeYear: true,
+                yearRange: '2020:2030', // Optional: Set year range as needed
+            });
+
+
+        });
+
+        function openEditForm(id, title, description, user_id, state, end_date) {
+            document.getElementById('edit_task_id').value = id;
+            document.getElementById('edit_title').value = title;
+            document.getElementById('edit_description').value = description;
+            document.getElementById('edit_user_id').value = user_id;
+            document.getElementById('edit_state').checked = state == 1;
+            document.getElementById('edit_end_date').value = end_date ? end_date : '';
+            document.getElementById('editTaskModal').style.display = 'block';
+        }
+    </script>
+<?php 
+};
