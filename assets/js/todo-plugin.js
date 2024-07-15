@@ -12,7 +12,6 @@ jQuery(document).ready(function ($) {
     yearRange: "2020:2030", // Optional: Set year range as needed
   });
 
-  
   $(".task-state-checkbox").change(function () {
     var taskId = $(this).data("task-id");
     var newState = $(this).is(":checked") ? 1 : 0;
