@@ -36,6 +36,8 @@ function enqueue_datepicker()
     // Enqueue jQuery UI theme
     wp_enqueue_style('jquery-ui-theme', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
 }
+add_action('admin_enqueue_scripts', 'enqueue_datepicker');
+
 
 global $task_manager_db_version;
 $task_manager_db_version = '1.0';
@@ -136,7 +138,7 @@ function task_manager_page()
     $table_name = $wpdb->prefix . 'tasks';
 
     // Handle form submissions for adding, editing, and deleting tasks.
-    if (isset($_POST['submit'])) {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Add new task.
         if (isset($_POST['new_task']) && $_POST['new_task'] == 1) {
@@ -180,27 +182,12 @@ function task_manager_page()
             );
             echo '<div class="updated"><p>New task added successfully!</p></div>';
         }
-        // Delete task.
-        if (isset($_POST['delete_task']) && $_POST['delete_task'] == '1') {
-            $id = absint($_POST['id']);
 
-            var_dump($_POST); // Debugging statement to check $_POST data
-            $result = $wpdb->delete(
-                $table_name,
-                array('id' => $id)
-            );
 
-            if ($result === false) {
-                echo '<div class="error"><p>Error deleting task: ' . $wpdb->last_error . '</p></div>';
-            } else {
-                echo '<div class="updated"><p>Task deleted successfully!</p></div>';
-            }
-            $wpdb->show_errors();
-            return $result;
-        }
 
         // Edit task.
         if (isset($_POST['edit_task']) && $_POST['edit_task'] == '1') {
+
             $id = $_POST['id'];
             $title = sanitize_text_field($_POST['title']);
             $description = sanitize_textarea_field($_POST['description']);
@@ -243,11 +230,28 @@ function task_manager_page()
             );
             echo '<div class="updated"><p>Task updated successfully!</p></div>';
         }
+        // Delete task.
+        if (isset($_POST['delete_task']) && $_POST['delete_task'] == '1') {
+
+            $id = absint($_POST['id']);
+
+            $result = $wpdb->delete(
+                $table_name,
+                array('id' => $id)
+            );
+
+            if ($result === false) {
+                echo '<div class="error"><p>Error deleting task: ' . $wpdb->last_error . '</p></div>';
+            } else {
+                echo '<div class="updated"><p>Task deleted successfully!</p></div>';
+            }
+        }
     }
 
     // Fetch tasks from the database.
     $tasks = $wpdb->get_results("SELECT * FROM $table_name ORDER BY created_at DESC");
 ?>
+
     <div class="wrap">
         <h1>Task Manager</h1>
 
@@ -309,7 +313,7 @@ function task_manager_page()
                             <form method="POST" style="display:inline;">
                                 <input type="hidden" name="delete_task" value="1">
                                 <input type="hidden" name="id" value="<?php echo $task->id; ?>">
-                                <button type="submit" class="button button-link-delete">Delete</button>
+                                <button type="submit" class="button button-link-delete" onclick="return confirm('Are you sure you want to delete this task?');">Delete</button>
                             </form>
                             <button class="button button-link-edit" onclick="openEditForm(<?php echo $task->id; ?>, '<?php echo esc_js($task->title); ?>', '<?php echo esc_js($task->description); ?>', '<?php echo esc_js($task->user_id); ?>', '<?php echo esc_js($task->state); ?>', '<?php echo esc_js($task->end_date); ?>')">Edit</button>
                         </td>
@@ -355,23 +359,14 @@ function task_manager_page()
                     </tr>
                 </table>
                 <p class="submit"><input type="submit" name="submit" id="submit" class="button button-primary" value="Update Task"></p>
+
             </form>
+            <button type="button" class="button close">&times;</button>
+
         </div>
     </div>
 
     <script>
-        jQuery(document).ready(function($) {
-            // Datepicker initialization
-            $('.datepicker').datepicker({
-                dateFormat: 'dd mm yy', // Set the date format to dd mm yyyy
-                changeMonth: true,
-                changeYear: true,
-                yearRange: '2020:2030', // Optional: Set year range as needed
-            });
-
-
-        });
-
         function openEditForm(id, title, description, user_id, state, end_date) {
             document.getElementById('edit_task_id').value = id;
             document.getElementById('edit_title').value = title;
@@ -382,5 +377,5 @@ function task_manager_page()
             document.getElementById('editTaskModal').style.display = 'block';
         }
     </script>
-<?php 
+<?php
 };
