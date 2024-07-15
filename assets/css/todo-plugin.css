@@ -23,3 +23,11 @@
   color: black;
   border-radius: 12px;
 }
+
+.task_table .manage-column {
+  min-width: 100px;
+  padding/: 0 10px;
+}
+.task_table .column-columnname {
+  text-align: center;
+}

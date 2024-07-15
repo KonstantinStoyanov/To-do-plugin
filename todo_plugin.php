@@ -12,21 +12,22 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// Enqueue styles and task manager scripts for both admin and front-end
 function task_manager_scripts()
 {
-    // Enqueue the styles and scripts for the front end
+    // Common styles
     wp_enqueue_style('task-manager', plugins_url('/assets/css/todo-plugin.css', __FILE__));
+
+    // Common scripts
     wp_enqueue_script('task-manager', plugins_url('/assets/js/todo-plugin.js', __FILE__), array('jquery'), null, true);
+
+    // Localize script for AJAX
+    wp_localize_script('task-manager', 'ajax_object', array(
+        'ajax_url' => admin_url('admin-ajax.php')
+    ));
 }
 add_action('wp_enqueue_scripts', 'task_manager_scripts');
-
-function task_manager_admin_scripts()
-{
-    // Enqueue the styles and scripts for the admin area
-    wp_enqueue_style('task-manager-admin', plugins_url('/assets/css/todo-plugin.css', __FILE__));
-    wp_enqueue_script('task-manager-admin', plugins_url('/assets/js/todo-plugin.js', __FILE__), array('jquery'), null, true);
-}
-add_action('admin_enqueue_scripts', 'task_manager_admin_scripts');
+add_action('admin_enqueue_scripts', 'task_manager_scripts');
 
 function enqueue_datepicker()
 {
@@ -36,6 +37,8 @@ function enqueue_datepicker()
     // Enqueue jQuery UI theme
     wp_enqueue_style('jquery-ui-theme', 'https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css');
 }
+
+add_action('wp_enqueue_scripts', 'enqueue_datepicker');
 add_action('admin_enqueue_scripts', 'enqueue_datepicker');
 
 
@@ -379,3 +382,71 @@ function task_manager_page()
     </script>
 <?php
 };
+
+
+function display_tasks_shortcode()
+{
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'tasks';
+
+    // Fetch tasks from the database
+    $tasks = $wpdb->get_results("SELECT * FROM $table_name ORDER BY created_at DESC");
+
+    // Start the output buffer
+    ob_start();
+?>
+
+    <table class="widefat task_table fixed" cellspacing="0">
+        <thead>
+            <tr>
+                <th class="manage-column">Title</th>
+                <th class="manage-column">Description</th>
+                <th class="manage-column">Assignee</th>
+                <th class="manage-column">End Date</th>
+                <th class="manage-column">State</th>
+
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($tasks as $task) { ?>
+                <tr>
+                    <td class="column-columnname"><?php echo esc_html($task->title); ?></td>
+                    <td class="column-columnname"><?php echo esc_html($task->description); ?></td>
+                    <td class="column-columnname"><?php echo esc_html(get_userdata($task->user_id)->display_name); ?></td>
+
+                    <td class="column-columnname"><?php echo $task->end_date ? date('d M Y', strtotime($task->end_date)) : ''; ?></td>
+                    <td class="column-columnname">
+                        <input type="checkbox" class="task-state-checkbox" data-task-id="<?php echo $task->id; ?>" <?php checked($task->state, 1); ?>>
+                    </td>
+                </tr>
+            <?php } ?>
+        </tbody>
+    </table>
+
+<?php
+    // Return the output buffer contents
+    return ob_get_clean();
+}
+add_shortcode('display_tasks', 'display_tasks_shortcode');
+
+
+function change_task_state()
+{
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'tasks';
+
+    $task_id = intval($_POST['task_id']);
+    $state = intval($_POST['state']);
+
+    $wpdb->update(
+        $table_name,
+        array('state' => $state),
+        array('id' => $task_id),
+        array('%d'),
+        array('%d')
+    );
+
+    wp_send_json_success();
+}
+add_action('wp_ajax_change_task_state', 'change_task_state');
+add_action('wp_ajax_nopriv_change_task_state', 'change_task_state');
