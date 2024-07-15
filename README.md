@@ -10,6 +10,10 @@ You can view the assignment in a file - php-and-wordpress-developer-php-challeng
 - Select the plugin ZIP file from your computer that you want to upload, then click Install Now.Select the plugin ZIP file from your computer that you want to upload, then click Install Now.
 - Wait for the plugin installation to finish and press Activate Plugin.Wait for the plugin installation to finish and press Activate Plugin.
 
+## Create Task
+
+- Go to Task Manager in admin menu and crate a new Task;
+  
 ## Shortcodes
 
 To show all task and change state use shortcode: **[display_tasks]**
